@@ -1,0 +1,60 @@
+:root {
+  --paper: #f6f7f9; --ink: #1d2740; --line: #d9dde6; --mark: #ffd84d; --muted: #5d6781;
+  font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--paper);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #141a2b; --ink: #eef0f6; --line: #2c3550; --muted: #9aa3bd; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+h1 { font-family: Georgia, serif; font-size: 2.2rem; margin: 0; }
+header p { color: var(--muted); margin: .25rem 0 .75rem; }
+.bar { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--mark); transition: width .3s; }
+form { display: grid; grid-template-columns: 2fr 1fr 1fr 80px auto; gap: .5rem; margin: 1.5rem 0 .5rem; }
+input:not([type=checkbox]) { padding: .55rem; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; min-width: 0; }
+button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); padding: .55rem .9rem; }
+:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0; }
+.chip { background: transparent; color: inherit; border-color: var(--line); padding: .25rem .7rem; }
+.chip.on { background: var(--mark); color: #1d2740; border-color: var(--mark); }
+h2 { font-size: 1rem; margin: 1.5rem 0 .4rem; border-bottom: 2px solid var(--mark); display: inline-block; }
+ul { list-style: none; padding: 0; margin: 0; }
+li { display: grid; grid-template-columns: auto 1fr auto auto; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--line); }
+li.done .title { text-decoration: line-through; color: var(--muted); }
+.meta { color: var(--muted); font-size: .85rem; }
+.x { background: transparent; color: var(--muted); border-color: transparent; padding: .2rem .5rem; }
+.x:hover { color: #c0392b; }
+.error { color: #c0392b; }
+.empty { color: var(--muted); margin-top: 2rem; }
+@media (max-width: 600px) { form { grid-template-columns: 1fr 1fr; } form input:first-child { grid-column: 1 / -1; } }
+
+/* ---- v2: accounts, exams, priorities ---- */
+select { padding: .55rem; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; min-width: 0; }
+.task-form { grid-template-columns: 2fr 1fr 1fr 80px 1.2fr auto; }
+.exam-form { grid-template-columns: 2fr 1fr 1fr auto; margin-top: .75rem; }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.link { background: transparent; color: var(--muted); border: 0; text-decoration: underline; padding: .2rem; }
+h2 { font-family: Georgia, serif; font-size: 1.3rem; border: 0; margin: 2rem 0 .5rem; display: block; }
+h3 { font-size: 1rem; margin: 1.25rem 0 .4rem; border-bottom: 2px solid var(--mark); display: inline-block; }
+.exams { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .75rem; }
+.exam { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: .75rem; }
+.exam strong { font-family: Georgia, serif; font-size: 2.4rem; line-height: 1; margin-right: .3rem; }
+.exam p { margin: .4rem 0 0; font-weight: 600; }
+.exam small { color: var(--muted); }
+.exam.soon { background: var(--mark); color: #1d2740; border-color: var(--mark); }
+.exam.soon small { color: #1d2740; }
+.exam .x { position: absolute; top: .3rem; right: .3rem; }
+.badge { font-size: .75rem; padding: .1rem .5rem; border-radius: 999px; border: 1px solid var(--line); }
+.badge.high { border-color: #c0392b; color: #c0392b; font-weight: 600; }
+.badge.low { color: var(--muted); }
+.auth { max-width: 380px; padding-top: 4rem; }
+.sub { color: var(--muted); }
+.stack { display: grid; grid-template-columns: 1fr; gap: .6rem; margin: 1.25rem 0 .5rem; }
+@media (max-width: 600px) {
+  .task-form, .exam-form { grid-template-columns: 1fr 1fr; }
+  .task-form input:first-child, .exam-form input:first-child { grid-column: 1 / -1; }
+  li { grid-template-columns: auto 1fr auto; }
+  li .meta { grid-column: 2 / -1; }
+}
