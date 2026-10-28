@@ -1,18 +1,24 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import fs from "fs";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import mysql from "mysql2/promise";
 import { randomUUID } from "crypto";
 
-const FILE = new URL("./db.json", import.meta.url);
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || "127.0.0.1",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "study_planner",
+  dateStrings: true,
+  waitForConnections: true,
+  connectionLimit: 10,
+});
 const SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
-const empty = { users: [], tasks: [], exams: [] };
-
-const load = () => {
-  try { return { ...empty, ...JSON.parse(fs.readFileSync(FILE, "utf8")) }; } catch { return { ...empty }; }
-};
-const save = (db) => fs.writeFileSync(FILE, JSON.stringify(db, null, 2));
+const PRIORITIES = ["high", "medium", "low"];
+const subjectOf = (s) => (s || "").trim() || "General";
+const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const app = express();
 app.use(cors());
@@ -24,25 +30,27 @@ const session = (user) => ({
   user: { name: user.name, email: user.email },
 });
 
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", wrap(async (req, res) => {
   const { name = "", email = "", password = "" } = req.body;
   const cleanEmail = email.trim().toLowerCase();
   if (!name.trim() || !cleanEmail.includes("@")) return res.status(400).json({ error: "Enter your name and a valid email" });
   if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
-  const db = load();
-  if (db.users.some((u) => u.email === cleanEmail)) return res.status(409).json({ error: "That email is already registered" });
-  const user = { id: randomUUID(), name: name.trim(), email: cleanEmail, hash: await bcrypt.hash(password, 10) };
-  db.users.push(user);
-  save(db);
+  const [exists] = await pool.query("SELECT id FROM users WHERE email = ?", [cleanEmail]);
+  if (exists.length) return res.status(409).json({ error: "That email is already registered" });
+  const user = { id: randomUUID(), name: name.trim(), email: cleanEmail };
+  await pool.query("INSERT INTO users (id, name, email, hash) VALUES (?, ?, ?, ?)", [
+    user.id, user.name, user.email, await bcrypt.hash(password, 10),
+  ]);
   res.status(201).json(session(user));
-});
+}));
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", wrap(async (req, res) => {
   const { email = "", password = "" } = req.body;
-  const user = load().users.find((u) => u.email === email.trim().toLowerCase());
+  const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [email.trim().toLowerCase()]);
+  const user = rows[0];
   if (!user || !(await bcrypt.compare(password, user.hash))) return res.status(401).json({ error: "Wrong email or password" });
   res.json(session(user));
-});
+}));
 
 const auth = (req, res, next) => {
   try {
@@ -53,59 +61,84 @@ const auth = (req, res, next) => {
   }
 };
 
-// ---------- Tasks and exams (each user sees only their own) ----------
-const PRIORITIES = ["high", "medium", "low"];
+// ---------- Tasks ----------
+const toTask = (r) => ({
+  id: r.id, title: r.title, subject: r.subject, due: r.due || "",
+  minutes: r.minutes, priority: r.priority, done: !!r.done,
+});
 
-const makeTask = (b) => {
-  if (!b.title || !b.title.trim()) return { error: "Task title is required" };
-  return {
-    title: b.title.trim(),
-    subject: (b.subject || "").trim() || "General",
-    due: b.due || "",
-    minutes: Number(b.minutes) || 30,
-    priority: PRIORITIES.includes(b.priority) ? b.priority : "medium",
-    done: false,
-  };
-};
+app.get("/api/tasks", auth, wrap(async (req, res) => {
+  const [rows] = await pool.query("SELECT * FROM tasks WHERE user_id = ?", [req.userId]);
+  res.json(rows.map(toTask));
+}));
 
-const makeExam = (b) => {
-  if (!b.title || !b.title.trim() || !b.date) return { error: "Exam name and date are required" };
-  return { title: b.title.trim(), subject: (b.subject || "").trim() || "General", date: b.date };
-};
+app.post("/api/tasks", auth, wrap(async (req, res) => {
+  const b = req.body;
+  if (!b.title || !b.title.trim()) return res.status(400).json({ error: "Task title is required" });
+  const id = randomUUID();
+  await pool.query(
+    "INSERT INTO tasks (id, user_id, title, subject, due, minutes, priority) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [id, req.userId, b.title.trim(), subjectOf(b.subject), b.due || null, Number(b.minutes) || 30,
+     PRIORITIES.includes(b.priority) ? b.priority : "medium"]
+  );
+  const [rows] = await pool.query("SELECT * FROM tasks WHERE id = ?", [id]);
+  res.status(201).json(toTask(rows[0]));
+}));
 
-const resource = (key, make) => {
-  app.get(`/api/${key}`, auth, (req, res) => res.json(load()[key].filter((x) => x.userId === req.userId)));
+app.patch("/api/tasks/:id", auth, wrap(async (req, res) => {
+  const sets = [], vals = [];
+  for (const f of ["title", "subject", "due", "minutes", "priority", "done"]) {
+    if (f in req.body) {
+      sets.push(`\`${f}\` = ?`);
+      vals.push(f === "due" ? req.body.due || null : req.body[f]);
+    }
+  }
+  if (!sets.length) return res.status(400).json({ error: "Nothing to update" });
+  await pool.query(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ? AND user_id = ?`, [...vals, req.params.id, req.userId]);
+  const [rows] = await pool.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [req.params.id, req.userId]);
+  if (!rows.length) return res.status(404).json({ error: "Not found" });
+  res.json(toTask(rows[0]));
+}));
 
-  app.post(`/api/${key}`, auth, (req, res) => {
-    const item = make(req.body);
-    if (item.error) return res.status(400).json(item);
-    const db = load();
-    const full = { ...item, id: randomUUID(), userId: req.userId };
-    db[key].push(full);
-    save(db);
-    res.status(201).json(full);
-  });
+app.delete("/api/tasks/:id", auth, wrap(async (req, res) => {
+  await pool.query("DELETE FROM tasks WHERE id = ? AND user_id = ?", [req.params.id, req.userId]);
+  res.status(204).end();
+}));
 
-  app.patch(`/api/${key}/:id`, auth, (req, res) => {
-    const db = load();
-    const i = db[key].findIndex((x) => x.id === req.params.id && x.userId === req.userId);
-    if (i === -1) return res.status(404).json({ error: "Not found" });
-    const { id, userId, ...changes } = req.body;
-    db[key][i] = { ...db[key][i], ...changes };
-    save(db);
-    res.json(db[key][i]);
-  });
+// ---------- Exams ----------
+const toExam = (r) => ({ id: r.id, title: r.title, subject: r.subject, date: r.date });
 
-  app.delete(`/api/${key}/:id`, auth, (req, res) => {
-    const db = load();
-    db[key] = db[key].filter((x) => !(x.id === req.params.id && x.userId === req.userId));
-    save(db);
-    res.status(204).end();
-  });
-};
+app.get("/api/exams", auth, wrap(async (req, res) => {
+  const [rows] = await pool.query("SELECT * FROM exams WHERE user_id = ?", [req.userId]);
+  res.json(rows.map(toExam));
+}));
 
-resource("tasks", makeTask);
-resource("exams", makeExam);
+app.post("/api/exams", auth, wrap(async (req, res) => {
+  const b = req.body;
+  if (!b.title || !b.title.trim() || !b.date) return res.status(400).json({ error: "Exam name and date are required" });
+  const id = randomUUID();
+  await pool.query("INSERT INTO exams (id, user_id, title, subject, `date`) VALUES (?, ?, ?, ?, ?)", [
+    id, req.userId, b.title.trim(), subjectOf(b.subject), b.date,
+  ]);
+  const [rows] = await pool.query("SELECT * FROM exams WHERE id = ?", [id]);
+  res.status(201).json(toExam(rows[0]));
+}));
+
+app.delete("/api/exams/:id", auth, wrap(async (req, res) => {
+  await pool.query("DELETE FROM exams WHERE id = ? AND user_id = ?", [req.params.id, req.userId]);
+  res.status(204).end();
+}));
+
+// ---------- Errors and start ----------
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: "Something went wrong on the server" });
+});
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+pool.query("SELECT 1")
+  .then(() => app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`)))
+  .catch((err) => {
+    console.error("Cannot connect to MySQL. Is MySQL started in XAMPP?", err.message);
+    process.exit(1);
+  });
