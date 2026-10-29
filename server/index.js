@@ -1,3 +1,6 @@
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import registerSessions from "./sessions.js";
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -22,8 +25,14 @@ const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const app = express();
 app.use(cors());
+app.use(helmet());
 app.use(express.json());
-
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  message: { error: "Too many attempts. Try again in 15 minutes." },
+});
+app.use(["/api/login", "/api/register"], authLimiter);
 // ---------- Auth ----------
 const session = (user) => ({
   token: jwt.sign({ id: user.id }, SECRET, { expiresIn: "7d" }),
@@ -128,7 +137,7 @@ app.delete("/api/exams/:id", auth, wrap(async (req, res) => {
   await pool.query("DELETE FROM exams WHERE id = ? AND user_id = ?", [req.params.id, req.userId]);
   res.status(204).end();
 }));
-
+registerSessions(app, pool, auth, wrap);
 // ---------- Errors and start ----------
 app.use((err, _req, res, _next) => {
   console.error(err);
