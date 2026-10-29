@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
-    "dev": "concurrently -n api,web \"npm run dev --prefix server\" \"npm run dev --prefix client\""
+    "dev": "concurrently -n api,web \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm install --include=dev --prefix client && npm run build --prefix client && npm install --prefix server",
+    "start": "node server/index.js",
+    "test": "node --test client/src/utils.test.js"
   },
   "devDependencies": { "concurrently": "^9.0.0" }
 }

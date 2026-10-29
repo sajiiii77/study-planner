@@ -35,3 +35,23 @@ export const studyStats = (sessions) => {
   }
   return { today: byDate[todayISO()] || 0, streak, byDate };
 };
+
+// Every subject gets its own color, used on tasks, calendar blocks and progress bars
+const PALETTE = ["#E4572E", "#0F9D74", "#1C86C8", "#8A5CF5", "#D6336C", "#C77700", "#0E8FA0", "#4C8C2B"];
+export const subjectColor = (name = "") => {
+  let h = 0;
+  for (const c of name.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+};
+
+export const relativeDay = (s) => {
+  if (!s) return "No due date";
+  const n = daysUntil(s);
+  if (n === 0) return "Today";
+  if (n === 1) return "Tomorrow";
+  if (n === -1) return "Yesterday";
+  return dayLabel(s);
+};
+
+export const initials = (name = "") =>
+  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";

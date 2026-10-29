@@ -1,3 +1,5 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import registerSessions from "./sessions.js";
@@ -17,6 +19,8 @@ const pool = mysql.createPool({
   dateStrings: true,
   waitForConnections: true,
   connectionLimit: 10,
+    port: Number(process.env.DB_PORT) || 3306,
+  ssl: process.env.DB_SSL === "true" ? { minVersion: "TLSv1.2", rejectUnauthorized: true } : undefined,
 });
 const SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const PRIORITIES = ["high", "medium", "low"];
@@ -138,6 +142,10 @@ app.delete("/api/exams/:id", auth, wrap(async (req, res) => {
   res.status(204).end();
 }));
 registerSessions(app, pool, auth, wrap);
+// Serve the built React app (after `npm run build`)
+const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), "../client/dist");
+app.use(express.static(dist));
+app.get("*", (req, res, next) => (req.path.startsWith("/api") ? next() : res.sendFile(path.join(dist, "index.html"))));
 // ---------- Errors and start ----------
 app.use((err, _req, res, _next) => {
   console.error(err);
