@@ -1,75 +1,108 @@
-import { useState } from "react";
-import { Trash2 } from "lucide-react";
-import { dayLabel, todayISO, RANK } from "../utils.js";
+import { useMemo, useState } from "react";
+import { Search, Plus } from "lucide-react";
+import { todayISO, relativeDay, dayLabel, subjectColor, RANK } from "../utils.js";
+import TaskItem from "../components/TaskItem.jsx";
+import Empty from "../components/Empty.jsx";
 
-const empty = { title: "", subject: "", due: "", minutes: 30, priority: "medium" };
+const GROUPS = [["due", "Due date"], ["subject", "Subject"], ["priority", "Priority"]];
+const PRIO_LABEL = { high: "High priority", medium: "Medium priority", low: "Low priority" };
 
-export default function Tasks({ tasks, addTask, updateTask, deleteTask }) {
-  const [form, setForm] = useState(empty);
-  const [subject, setSubject] = useState("All");
+export default function Tasks({ tasks, updateTask, openTask, onDeleteTask, initialSubject }) {
   const [status, setStatus] = useState("open");
+  const [subject, setSubject] = useState(initialSubject || "All");
   const [query, setQuery] = useState("");
+  const [by, setBy] = useState("due");
   const today = todayISO();
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const submit = async (e) => {
-    e.preventDefault();
-    if (await addTask(form)) setForm(empty);
-  };
-
-  const subjects = [...new Set(tasks.map((t) => t.subject))];
+  const subjects = [...new Set(tasks.map((t) => t.subject))].sort();
+  const counts = { open: tasks.filter((t) => !t.done).length, done: tasks.filter((t) => t.done).length, all: tasks.length };
+  const q = query.trim().toLowerCase();
   const visible = tasks.filter(
     (t) =>
       (subject === "All" || t.subject === subject) &&
       (status === "all" || (status === "done") === t.done) &&
-      t.title.toLowerCase().includes(query.toLowerCase())
+      (!q || t.title.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q))
   );
 
-  const map = {};
-  visible.forEach((t) => (map[t.due] ||= []).push(t));
-  Object.values(map).forEach((l) => l.sort((a, b) => a.done - b.done || RANK[a.priority] - RANK[b.priority]));
-  const groups = Object.entries(map).sort(([a], [b]) => (a || "9999").localeCompare(b || "9999"));
+  const groups = useMemo(() => {
+    const map = {};
+    visible.forEach((t) => {
+      const key = by === "due" ? t.due : by === "subject" ? t.subject : t.priority;
+      (map[key] ||= []).push(t);
+    });
+    const keys = Object.keys(map).sort((a, b) =>
+      by === "due" ? (a || "9999").localeCompare(b || "9999") : by === "priority" ? RANK[a] - RANK[b] : a.localeCompare(b)
+    );
+    return keys.map((key) => {
+      const items = map[key].sort((a, b) => a.done - b.done || RANK[a.priority] - RANK[b.priority] || (a.due || "9999").localeCompare(b.due || "9999"));
+      const done = items.filter((t) => t.done).length;
+      const late = by === "due" && key && key < today && items.some((t) => !t.done);
+      return {
+        key,
+        title: by === "due" ? (late ? "Overdue" : relativeDay(key)) : by === "subject" ? key : PRIO_LABEL[key],
+        sub: by === "due" ? (key && relativeDay(key) !== dayLabel(key) && !late ? dayLabel(key) : late ? dayLabel(key) : "") : `${done} of ${items.length} done`,
+        late,
+        color: by === "subject" ? subjectColor(key) : null,
+        items,
+      };
+    });
+  }, [visible, by]);
+
+  const toggle = (t) => updateTask(t.id, { done: !t.done });
 
   return (
     <>
-      <form className="card form-grid" onSubmit={submit}>
-        <input placeholder="What do you need to study?" value={form.title} onChange={set("title")} aria-label="Task" />
-        <input list="subject-list" placeholder="Subject" value={form.subject} onChange={set("subject")} aria-label="Subject" />
-        <datalist id="subject-list">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
-        <input type="date" value={form.due} onChange={set("due")} aria-label="Due date" />
-        <input type="number" min="5" step="5" value={form.minutes} onChange={set("minutes")} aria-label="Minutes" />
-        <select value={form.priority} onChange={set("priority")} aria-label="Priority">
-          <option value="high">High priority</option>
-          <option value="medium">Medium priority</option>
-          <option value="low">Low priority</option>
-        </select>
-        <button>Add task</button>
-      </form>
-
-      <div className="toolbar">
-        <input placeholder="Search tasks…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search tasks" />
-        {["open", "done", "all"].map((s) => (
-          <button key={s} className={s === status ? "chip on" : "chip"} onClick={() => setStatus(s)}>{s}</button>
-        ))}
-        <span className="divider" />
-        {["All", ...subjects].map((s) => (
-          <button key={s} className={s === subject ? "chip on" : "chip"} onClick={() => setSubject(s)}>{s}</button>
-        ))}
+      <div className="cx-top">
+        <div>
+          <h2>My Tasks</h2>
+          <p>{counts.open} open, {counts.done} done</p>
+        </div>
       </div>
 
-      {groups.length === 0 && <p className="empty">No tasks match. Add one above.</p>}
-      {groups.map(([date, items]) => (
-        <section className="card group" key={date || "none"}>
-          <h2>{dayLabel(date)}</h2>
-          {items.map((t) => (
-            <div className={t.done ? "row done" : "row"} key={t.id}>
-              <input type="checkbox" checked={t.done} onChange={() => updateTask(t.id, { done: !t.done })} aria-label={`Mark ${t.title} done`} />
-              <span className="title">{t.title}</span>
-              <span className={`badge ${t.priority}`}>{t.priority}</span>
-              <span className="meta">{!t.done && t.due && t.due < today ? "Overdue · " : ""}{t.subject} · {t.minutes} min</span>
-              <button className="icon-btn" onClick={() => deleteTask(t.id)} aria-label={`Delete ${t.title}`}><Trash2 size={16} /></button>
-            </div>
+      <div className="cx-tools">
+        <label className="cx-search">
+          <Search size={16} strokeWidth={1.75} />
+          <input placeholder="Search tasks or subjects" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search tasks" />
+        </label>
+        <div className="cx-seg" role="group" aria-label="Status">
+          {[["open", "Open"], ["done", "Done"], ["all", "All"]].map(([key, label]) => (
+            <button key={key} aria-pressed={status === key} onClick={() => setStatus(key)}>{label}<small>{counts[key]}</small></button>
           ))}
+        </div>
+        <div className="cx-seg push" role="group" aria-label="Group by">
+          {GROUPS.map(([key, label]) => <button key={key} aria-pressed={by === key} onClick={() => setBy(key)}>{label}</button>)}
+        </div>
+      </div>
+
+      {subjects.length > 0 && (
+        <div className="cx-chips">
+          <button className="cx-pill" aria-pressed={subject === "All"} onClick={() => setSubject("All")}>All subjects</button>
+          {subjects.map((s) => (
+            <button key={s} className="cx-pill" aria-pressed={subject === s} style={{ "--c": subjectColor(s) }} onClick={() => setSubject(s)}><i />{s}</button>
+          ))}
+        </div>
+      )}
+
+      {tasks.length === 0 && (
+        <Empty title="Your plan is empty" text="Add your first task and choose the day you will study it.">
+          <button className="btn-accent" onClick={() => openTask()}><Plus size={16} strokeWidth={2} /> Add a task</button>
+        </Empty>
+      )}
+      {tasks.length > 0 && groups.length === 0 && <Empty title="No tasks match" text="Try a different search, or switch the filters." />}
+
+      {groups.map((g) => (
+        <section className={g.late ? "cx-group late" : "cx-group"} key={g.key || "none"}>
+          <header className="cx-group-head">
+            {g.color && <i className="dx-dot" style={{ "--c": g.color, width: 8, height: 8 }} />}
+            <h3>{g.title}</h3>
+            <span className="sub">{g.sub}</span>
+            <span className="count">{g.items.length}</span>
+          </header>
+          <ul className="cx-list">
+            {g.items.map((t) => (
+              <TaskItem key={t.id} task={t} today={today} showDue={by !== "due"} onToggle={toggle} onEdit={openTask} onDelete={onDeleteTask} />
+            ))}
+          </ul>
         </section>
       ))}
     </>

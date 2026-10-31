@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import Auth from "./Auth.jsx";
 import useData from "./useData.js";
 import { studyStats } from "./utils.js";
 import TaskModal from "./components/TaskModal.jsx";
+import ExamModal from "./components/ExamModal.jsx";
+import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import Sidebar from "./shell/Sidebar.jsx";
 import Topbar from "./shell/Topbar.jsx";
 import CommandPalette from "./shell/CommandPalette.jsx";
@@ -14,11 +16,16 @@ import Tasks from "./pages/Tasks.jsx";
 import CalendarHub from "./pages/CalendarHub.jsx";
 import Focus from "./pages/Focus.jsx";
 import ComingSoon from "./pages/ComingSoon.jsx";
+import Subjects from "./pages/Subjects.jsx";
+import Analytics from "./pages/Analytics.jsx";
+import Settings from "./pages/Settings.jsx";
 
 function Shell({ user, onLogout, theme, onToggleTheme }) {
   const [view, setView] = useState({ page: "dashboard", tab: null, subject: null, n: 0 });
   const [modal, setModal] = useState(null);
   const [palette, setPalette] = useState(false);
+  const [examModal, setExamModal] = useState(false);
+  const [confirm, setConfirm] = useState(null);
   const data = useData(onLogout);
   const { streak } = studyStats(data.sessions);
   const current = PAGES.find((p) => p.id === view.page);
@@ -34,6 +41,12 @@ function Shell({ user, onLogout, theme, onToggleTheme }) {
     }));
   };
   const openTask = (task = null, preset = {}) => setModal({ task, preset });
+  const askDelete = (kind, item) =>
+    setConfirm({
+      title: `Delete "${item.title}"?`,
+      text: kind === "task" ? "This task will be removed from your plan." : "This exam and its countdown will be removed.",
+      onConfirm: () => (kind === "task" ? data.deleteTask(item.id) : data.deleteExam(item.id)),
+    });
   const save = (form) => (modal.task ? data.updateTask(modal.task.id, form, "Task updated") : data.addTask(form));
 
   useEffect(() => {
@@ -51,9 +64,12 @@ function Shell({ user, onLogout, theme, onToggleTheme }) {
   const page = () => {
     switch (view.page) {
       case "dashboard": return <Dashboard user={user} {...data} openTask={openTask} goTo={go} />;
-      case "tasks": return <Tasks {...data} openTask={openTask} initialSubject={view.subject} />;
-      case "calendar": return <CalendarHub {...data} openTask={openTask} initialTab={view.tab} />;
+      case "tasks": return <Tasks {...data} openTask={openTask} onDeleteTask={(t) => askDelete("task", t)} initialSubject={view.subject} />;
+      case "calendar": return <CalendarHub {...data} openTask={openTask} openExam={() => setExamModal(true)} onDeleteExam={(x) => askDelete("exam", x)} initialTab={view.tab} />;
       case "focus": return <Focus {...data} />;
+      case "subjects": return <Subjects {...data} goTo={go} openTask={openTask} />;
+      case "analytics": return <Analytics {...data} />;
+      case "settings": return <Settings {...data} user={user} theme={theme} onToggleTheme={onToggleTheme} onLogout={onLogout} confirm={setConfirm} />;
       default: return <ComingSoon title={current.label} onBack={() => go("dashboard")} />;
     }
   };
@@ -102,16 +118,41 @@ function Shell({ user, onLogout, theme, onToggleTheme }) {
         onNewTask={() => openTask()}
         onSubject={(subject) => go("tasks", { subject })}
       />
-      {modal && (
-        <TaskModal
-          task={modal.task}
-          preset={modal.preset}
-          subjects={[...new Set(data.tasks.map((t) => t.subject))]}
-          onSave={save}
-          onClose={() => setModal(null)}
-        />
-      )}
-      {data.toast && <div className={`toast ${data.toast.type}`} role="status">{data.toast.message}</div>}
+      <AnimatePresence>
+        {modal && (
+          <TaskModal
+            key="task-modal"
+            task={modal.task}
+            preset={modal.preset}
+            subjects={[...new Set(data.tasks.map((t) => t.subject))]}
+            onSave={save}
+            onDelete={(task) => { setModal(null); askDelete("task", task); }}
+            onClose={() => setModal(null)}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {examModal && (
+          <ExamModal key="exam-modal" subjects={[...new Set([...data.tasks.map((t) => t.subject), ...data.exams.map((x) => x.subject)])]} onSave={data.addExam} onClose={() => setExamModal(false)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {confirm && <ConfirmDialog key="confirm" {...confirm} onClose={() => setConfirm(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {data.toast && (
+          <motion.div
+            key={data.toast.message}
+            className={`toast ${data.toast.type}`}
+            role="status"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
+          >
+            {data.toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

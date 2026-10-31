@@ -6,6 +6,8 @@ import "./styles.css";
 import "./styles/tokens.css";
 import "./styles/shell.css";
 import "./styles/dashboard.css";
+import "./styles/pages.css";
+import "./styles/insights.css";
 
 createRoot(document.getElementById("root")).render(
   <MotionConfig reducedMotion="user">

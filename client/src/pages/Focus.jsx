@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Play, Pause, RotateCcw, Check } from "lucide-react";
 import { studyStats } from "../utils.js";
+import { getFocusSettings } from "../lib/settings.js";
 
-const MODES = {
-  focus: { label: "Focus", minutes: 25 },
-  short: { label: "Short break", minutes: 5 },
-  long: { label: "Long break", minutes: 15 },
+const modes = () => {
+  const s = getFocusSettings();
+  return {
+    focus: { label: "Focus", minutes: s.focus },
+    short: { label: "Short break", minutes: s.short },
+    long: { label: "Long break", minutes: s.long },
+  };
 };
 const C = 2 * Math.PI * 90; // ring circumference
 
 export default function Focus({ tasks, sessions, logSession }) {
+  const MODES = modes();
   const [mode, setMode] = useState("focus");
   const [left, setLeft] = useState(MODES.focus.minutes * 60);
   const [running, setRunning] = useState(false);
@@ -39,8 +44,8 @@ export default function Focus({ tasks, sessions, logSession }) {
   }, [left]);
 
   useEffect(() => {
-    document.title = running ? `${clock} · Focus` : "Study Planner";
-    return () => { document.title = "Study Planner"; };
+    document.title = running ? `${clock} · Focus` : "Cadence";
+    return () => { document.title = "Cadence"; };
   }, [running, clock]);
 
   const choose = (m) => { setMode(m); setRunning(false); setLeft(MODES[m].minutes * 60); };
@@ -54,7 +59,7 @@ export default function Focus({ tasks, sessions, logSession }) {
   };
 
   return (
-    <div className="card focus">
+    <div className="panel focus">
       <div className="toolbar center">
         {Object.entries(MODES).map(([key, m]) => (
           <button key={key} className={key === mode ? "chip on" : "chip"} onClick={() => choose(key)}>{m.label}</button>
@@ -78,8 +83,8 @@ export default function Focus({ tasks, sessions, logSession }) {
 
       <div className="controls">
         {running
-          ? <button className="btn" onClick={() => setRunning(false)}><Pause size={18} /> Pause</button>
-          : <button className="btn" onClick={start}><Play size={18} /> Start</button>}
+          ? <button className="btn primary" onClick={() => setRunning(false)}><Pause size={18} /> Pause</button>
+          : <button className="btn primary" onClick={start}><Play size={18} /> Start</button>}
         <button className="btn ghost" onClick={reset}><RotateCcw size={18} /> Reset</button>
         {mode === "focus" && <button className="btn ghost" onClick={finishEarly}><Check size={18} /> Finish and save</button>}
       </div>
