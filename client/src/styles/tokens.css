@@ -1,0 +1,90 @@
+/* Cadence design tokens. Loaded after styles.css, so the "legacy" block at the
+   bottom re-points the old variable names at these tokens until every page is
+   redesigned. */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a0b0e;
+  --bg-elev: #0e1014;
+  --panel: #12141a;
+  --panel-2: #181b23;
+  --panel-3: #1f232d;
+  --hover: rgba(255, 255, 255, .045);
+  --border: rgba(255, 255, 255, .07);
+  --border-strong: rgba(255, 255, 255, .12);
+  --text: #eceef3;
+  --text-2: #a0a7b8;
+  --text-3: #6b7284;
+  --accent: #4fe3c1;
+  --accent-ink: #04130f;
+  --accent-soft: rgba(79, 227, 193, .12);
+  --accent-line: rgba(79, 227, 193, .35);
+  --amber: #ffb84d;
+  --red: #ff6b6b;
+  --green: #4ade80;
+  --blue: #6aa9ff;
+  --glow: rgba(79, 227, 193, .07);
+  --shadow-pop: 0 18px 50px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .05);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --bg-elev: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f0f2f5;
+  --panel-3: #e7eaef;
+  --hover: rgba(10, 15, 30, .045);
+  --border: rgba(10, 15, 30, .08);
+  --border-strong: rgba(10, 15, 30, .14);
+  --text: #0e1320;
+  --text-2: #4b5468;
+  --text-3: #7a8296;
+  --accent: #0b8f76;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(11, 143, 118, .1);
+  --accent-line: rgba(11, 143, 118, .3);
+  --amber: #b86e00;
+  --red: #d63b3b;
+  --green: #1a8f4a;
+  --blue: #2f6fd6;
+  --glow: rgba(11, 143, 118, .06);
+  --shadow-pop: 0 18px 50px rgba(15, 22, 40, .18), 0 0 0 1px rgba(10, 15, 30, .06);
+}
+:root, :root[data-theme="dark"], :root[data-theme="light"] {
+  --font: "Geist", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-press: cubic-bezier(.25, .46, .45, .94);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* legacy names used by the pages that are not redesigned yet */
+  --paper: var(--bg);
+  --surface: var(--panel);
+  --ink: var(--text);
+  --muted: var(--text-2);
+  --line: var(--border-strong);
+  --brand: var(--accent);
+  --brand-ink: var(--accent-ink);
+  --brand-soft: var(--accent-soft);
+  --mark: var(--amber);
+  --mark-ink: #2a1c00;
+  --high: var(--red);
+  --med: var(--amber);
+  --low: var(--green);
+  --display: var(--font);
+  --body: var(--font);
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(900px 420px at 78% -8%, var(--glow), transparent 62%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+h1, h2, h3 { letter-spacing: -.01em; font-weight: 600; }
+::selection { background: var(--accent-soft); }
+[data-theme-switching] *, [data-theme-switching] *::before, [data-theme-switching] *::after { transition: none !important; }

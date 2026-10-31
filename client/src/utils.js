@@ -37,7 +37,7 @@ export const studyStats = (sessions) => {
 };
 
 // Every subject gets its own color, used on tasks, calendar blocks and progress bars
-const PALETTE = ["#E4572E", "#0F9D74", "#1C86C8", "#8A5CF5", "#D6336C", "#C77700", "#0E8FA0", "#4C8C2B"];
+const PALETTE = ["#F2704B", "#17B183", "#3B9BE8", "#9B72F8", "#E8497F", "#D68A0C", "#14A3B5", "#6AA531"];
 export const subjectColor = (name = "") => {
   let h = 0;
   for (const c of name.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
