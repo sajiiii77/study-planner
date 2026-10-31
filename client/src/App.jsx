@@ -50,6 +50,10 @@ function Shell({ user, onLogout, theme, onToggleTheme }) {
   const save = (form) => (modal.task ? data.updateTask(modal.task.id, form, "Task updated") : data.addTask(form));
 
   useEffect(() => {
+    document.title = `${current.label} · Cadence`;
+  }, [view.page]);
+
+  useEffect(() => {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -76,6 +80,7 @@ function Shell({ user, onLogout, theme, onToggleTheme }) {
 
   return (
     <div className="shell">
+      <a className="skip" href="#main">Skip to content</a>
       <Sidebar page={view.page} onGo={go} streak={streak} />
       <div className="stage">
         <Topbar
@@ -92,7 +97,7 @@ function Shell({ user, onLogout, theme, onToggleTheme }) {
           onToggleTheme={onToggleTheme}
           onLogout={onLogout}
         />
-        <main className="view">
+        <main className="view" id="main" tabIndex={-1}>
           {data.loading ? (
             <DashboardSkeleton />
           ) : (
